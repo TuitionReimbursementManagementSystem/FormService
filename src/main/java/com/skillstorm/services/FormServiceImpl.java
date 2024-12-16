@@ -130,7 +130,7 @@ public class FormServiceImpl implements FormService {
                 .flatMap(supervisor -> {
                     // If Form contains Supervisor pre-approval or if the Supervisor is also a Department Head, skip Supervisor approval step:
                     if (formDto.getSupervisorAttachment() != null || "DEPARTMENT_HEAD".equalsIgnoreCase(supervisor.getRole())) {
-                        return supervisorApprove(id, username);
+                        return supervisorApprove(id, supervisor.getUsername());
                     }
 
                     // Otherwise, submit to Supervisor for approval:
@@ -141,15 +141,13 @@ public class FormServiceImpl implements FormService {
                 }));
     }
 
-    // Supervisor approve request. If the request contained a supervisor pre-approval attachment, the argument passed here
-    // will actually be the requesting user's username rather than the supervisor but they would work for the same Department
-    // and thus have the same Department Head:
+    // Supervisor approve request:
     @Override
     public Mono<FormDto> supervisorApprove(UUID id, String supervisor) {
         return findById(id)
                 .flatMap(formDto -> {
                     if(formDto.getDepartmentHeadAttachment() != null) {
-                        return departmentHeadApprove(id, supervisor);
+                        return departmentHeadApprove(id,  supervisor);
                     }
 
                     formDto.setStatus(Status.AWAITING_DEPARTMENT_HEAD_APPROVAL);
@@ -340,40 +338,18 @@ public class FormServiceImpl implements FormService {
 
     // Generate a pre-signed URL to allow user to upload file directly to S3 from their own machine:
     @Override
-    public Mono<String> generateUploadUrl(UUID formId, String contentType, AttachmentType attachmentType) {
+    public Mono<UploadUrlResponse> generateUploadUrl(UUID formId, String contentType, AttachmentType attachmentType) {
         // Verify file type is appropriate for the type of attachment:
         if(!isValidContentType(contentType, attachmentType)) {
             return Mono.error(new UnsupportedFileTypeException("Invalid content type"));
         }
 
-        // Look up the Form we want to attach our file to, and use it to generate a unique key for S3:
-        return findById(formId).flatMap(formDto -> {
-            String key = generateS3Key(formId, attachmentType);
+        // Generate a unique key for the object to be stored in S3:
+        String key = String.format("%s%s%s", formId, attachmentType.name().toLowerCase(), UUID.randomUUID());
 
-            // Generate the pre-signed url and update the form so that it contains a reference to the key:
-            return s3Service.generateUploadUrl(key, contentType).flatMap(url -> {
-                updateAttachmentKey(formDto, key, attachmentType);
-
-                // Save the updated form in the database and return the url in the response:
-                return formRepository.save(formDto.mapToEntity())
-                        .thenReturn(url);
-            });
-        });
-    }
-
-    // Use the attachment type to set the appropriate attachment field with the file's s3 bucket key:
-    private void updateAttachmentKey(FormDto formDto, String key, AttachmentType attachmentType) {
-        switch (attachmentType) {
-            case EVENT -> formDto.setAttachment(key);
-            case SUPERVISOR_APPROVAL -> formDto.setSupervisorAttachment(key);
-            case DEPARTMENT_HEAD_APPROVAL -> formDto.setDepartmentHeadAttachment(key);
-            case PROOF_OF_COMPLETION -> formDto.setCompletionAttachment(key);
-        }
-    }
-
-    // Generate a unique key for the object to be stored in S3:
-    private String generateS3Key(UUID formId, AttachmentType attachmentType) {
-        return String.format("%s%s%s", formId, attachmentType.name().toLowerCase(), UUID.randomUUID());
+        // Generate the pre-signed url and send both it and the key back in the response:
+        return s3Service.generateUploadUrl(key, contentType)
+                .map(url -> new UploadUrlResponse(url, key));
     }
 
     // Method to verify user file is acceptable content type:
@@ -390,6 +366,21 @@ public class FormServiceImpl implements FormService {
                     "application/vnd.openxmlformats-officedocument.presentationml.slideshow")
                     .contains(contentType);
         };
+    }
+
+    // Use the attachment type to set the appropriate attachment field with the file's s3 bucket key:
+    @Override
+    public Mono<FormDto> updateAttachmentField(UUID id, AttachmentType attachmentType, String key) {
+        return findById(id).flatMap(formDto -> {
+            switch (attachmentType) {
+                case EVENT -> formDto.setAttachment(key);
+                case SUPERVISOR_APPROVAL -> formDto.setSupervisorAttachment(key);
+                case DEPARTMENT_HEAD_APPROVAL -> formDto.setDepartmentHeadAttachment(key);
+                case PROOF_OF_COMPLETION -> formDto.setCompletionAttachment(key);
+            }
+            return formRepository.save(formDto.mapToEntity())
+                    .map(FormDto::new);
+        });
     }
 
     // Generate a pre-signed URL to allow user to download file from S3:

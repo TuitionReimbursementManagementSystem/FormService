@@ -6,18 +6,14 @@ import com.skillstorm.constants.GradeFormat;
 import com.skillstorm.constants.Status;
 import com.skillstorm.dtos.DenialDto;
 import com.skillstorm.dtos.FormDto;
+import com.skillstorm.dtos.UploadUrlResponse;
 import com.skillstorm.services.FormService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.InputStreamResource;
-import org.springframework.core.io.Resource;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.io.InputStream;
 import java.util.UUID;
 
 @RestController
@@ -138,12 +134,20 @@ public class FormController {
         return formService.cancelRequest(id);
     }
 
+    // Generate a Pre-signed Url to allow user to upload file attachments to S3:
     @PostMapping("/{id}/attachments/url")
-    public Mono<String> generateUploadUrl(@PathVariable("id") UUID id, @RequestParam String contentType,
-                                          @RequestParam AttachmentType attachmentType) {
+    public Mono<UploadUrlResponse> generateUploadUrl(@PathVariable("id") UUID id, @RequestParam String contentType,
+                                                     @RequestParam AttachmentType attachmentType) {
         return formService.generateUploadUrl(id,contentType, attachmentType);
     }
 
+    // Update the Form's attachment fields after a successful upload:
+    @PutMapping("/{id}/attachments/url")
+    public Mono<FormDto> updateAttachmentField(@PathVariable("id") UUID id, @RequestParam AttachmentType attachmentType, @RequestParam String key) {
+        return formService.updateAttachmentField(id, attachmentType, key);
+    }
+
+    // Generate a Pre-signed Url to allow user to download file attachments from S3:
     @GetMapping("/{id}/attachments/url")
     public Mono<String> generateDownloadUrl(@PathVariable("id") UUID id, @RequestParam AttachmentType attachmentType) {
         return formService.generateDownloadUrl(id, attachmentType);
