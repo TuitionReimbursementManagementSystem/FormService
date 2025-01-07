@@ -4,6 +4,7 @@ import com.skillstorm.constants.AttachmentType;
 import com.skillstorm.constants.EventType;
 import com.skillstorm.constants.GradeFormat;
 import com.skillstorm.constants.Status;
+import com.skillstorm.dtos.AttachmentUpdateDto;
 import com.skillstorm.dtos.DenialDto;
 import com.skillstorm.dtos.FormDto;
 import com.skillstorm.dtos.UploadUrlResponse;
@@ -35,8 +36,8 @@ public class FormController {
 
     // Create new Form:
     @PostMapping
-    public Mono<FormDto> createForm(@RequestBody FormDto newForm) {
-        return formService.createForm(newForm);
+    public Mono<FormDto> createForm(@RequestBody Mono<FormDto> newForm) {
+        return newForm.flatMap(formService::createForm);
     }
 
     // Find Form by ID:
@@ -59,8 +60,8 @@ public class FormController {
 
     // Update Form by ID:
     @PutMapping("/{id}")
-    public Mono<FormDto> updateById(@PathVariable("id") UUID id, @Valid @RequestBody FormDto updatedForm) {
-        return formService.updateById(id, updatedForm);
+    public Mono<FormDto> updateById(@PathVariable("id") UUID id, @Valid @RequestBody Mono<FormDto> updatedForm) {
+        return updatedForm.flatMap(formData -> formService.updateById(id, formData));
     }
 
     // Delete Form by ID:
@@ -108,8 +109,8 @@ public class FormController {
     // Deny the reimbursement request:
     // TODO: 'Approver' username in header?
     @PutMapping("/{id}/deny")
-    public Mono<FormDto> denyRequest(@PathVariable("id") UUID id, @Valid @RequestBody DenialDto denialDto) {
-        return formService.denyRequest(id, denialDto.getReason());
+    public Mono<FormDto> denyRequest(@PathVariable("id") UUID id, @Valid @RequestBody Mono<DenialDto> denialDto) {
+        return denialDto.flatMap(denial -> formService.denyRequest(id, denial.getReason()));
     }
 
     // Benco approve request. Still pending and requires passing grade / presentation to be granted:
@@ -136,14 +137,14 @@ public class FormController {
 
     // Generate a Pre-signed Url to allow user to upload file attachments to S3:
     @PostMapping("/{id}/attachments/url")
-    public Mono<UploadUrlResponse> generateUploadUrl(@PathVariable("id") UUID id, @RequestParam String contentType,
-                                                     @RequestParam AttachmentType attachmentType) {
+    public Mono<UploadUrlResponse> generateUploadUrl(@PathVariable("id") UUID id, @RequestParam("contentType") String contentType,
+                                                     @RequestParam("attachmentType") AttachmentType attachmentType) {
         return formService.generateUploadUrl(id,contentType, attachmentType);
     }
 
     // Update the Form's attachment fields after a successful upload:
     @PutMapping("/{id}/attachments/url")
-    public Mono<FormDto> updateAttachmentField(@PathVariable("id") UUID id, @RequestParam AttachmentType attachmentType, @RequestParam String key) {
+    public Mono<AttachmentUpdateDto> updateAttachmentField(@PathVariable("id") UUID id, @RequestParam("attachmentType") AttachmentType attachmentType, @RequestParam("key") String key) {
         return formService.updateAttachmentField(id, attachmentType, key);
     }
 

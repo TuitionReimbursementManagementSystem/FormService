@@ -35,7 +35,7 @@ exchanges:
 logging:
   level:
     org:
-      springframework: INFO
+      springframework: DEBUG
     com:
       datastax: ERROR
     io:

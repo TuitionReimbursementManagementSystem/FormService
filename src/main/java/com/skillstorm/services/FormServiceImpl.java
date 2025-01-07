@@ -345,7 +345,7 @@ public class FormServiceImpl implements FormService {
         }
 
         // Generate a unique key for the object to be stored in S3:
-        String key = String.format("%s%s%s", formId, attachmentType.name().toLowerCase(), UUID.randomUUID());
+        String key = String.format("%s/%s", formId, attachmentType.name().toLowerCase());
 
         // Generate the pre-signed url and send both it and the key back in the response:
         return s3Service.generateUploadUrl(key, contentType)
@@ -370,16 +370,28 @@ public class FormServiceImpl implements FormService {
 
     // Use the attachment type to set the appropriate attachment field with the file's s3 bucket key:
     @Override
-    public Mono<FormDto> updateAttachmentField(UUID id, AttachmentType attachmentType, String key) {
+    public Mono<AttachmentUpdateDto> updateAttachmentField(UUID id, AttachmentType attachmentType, String key) {
         return findById(id).flatMap(formDto -> {
-            switch (attachmentType) {
-                case EVENT -> formDto.setAttachment(key);
-                case SUPERVISOR_APPROVAL -> formDto.setSupervisorAttachment(key);
-                case DEPARTMENT_HEAD_APPROVAL -> formDto.setDepartmentHeadAttachment(key);
-                case PROOF_OF_COMPLETION -> formDto.setCompletionAttachment(key);
-            }
+            String attachmentName = switch (attachmentType) {
+                case EVENT -> {
+                    formDto.setAttachment(key);
+                    yield "attachment";
+                }
+                case SUPERVISOR_APPROVAL -> {
+                    formDto.setSupervisorAttachment(key);
+                    yield "supervisorAttachment";
+                }
+                case DEPARTMENT_HEAD_APPROVAL -> {
+                    formDto.setDepartmentHeadAttachment(key);
+                    yield "departmentHeadAttachment";
+                }
+                case PROOF_OF_COMPLETION -> {
+                    formDto.setCompletionAttachment(key);
+                    yield "completionAttachment";
+                }
+            };
             return formRepository.save(formDto.mapToEntity())
-                    .map(FormDto::new);
+                    .thenReturn(new AttachmentUpdateDto(attachmentName, key));
         });
     }
 

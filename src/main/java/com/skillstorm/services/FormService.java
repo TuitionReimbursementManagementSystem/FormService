@@ -4,6 +4,7 @@ import com.skillstorm.constants.AttachmentType;
 import com.skillstorm.constants.EventType;
 import com.skillstorm.constants.GradeFormat;
 import com.skillstorm.constants.Status;
+import com.skillstorm.dtos.AttachmentUpdateDto;
 import com.skillstorm.dtos.FormDto;
 import com.skillstorm.dtos.UploadUrlResponse;
 import reactor.core.publisher.Flux;
@@ -65,7 +66,7 @@ public interface FormService {
     Mono<UploadUrlResponse> generateUploadUrl(UUID formId, String contentType, AttachmentType attachmentType);
 
     // // Update the Form's attachment fields after a successful upload:
-    Mono<FormDto> updateAttachmentField(UUID id, AttachmentType attachmentType, String key);
+    Mono<AttachmentUpdateDto> updateAttachmentField(UUID id, AttachmentType attachmentType, String key);
 
     // Generate a pre-signed URL to allow user to download file from S3:
     Mono<String> generateDownloadUrl(UUID id, AttachmentType attachmentType);

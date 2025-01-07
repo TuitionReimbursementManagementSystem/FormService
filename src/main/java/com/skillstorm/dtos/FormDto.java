@@ -166,8 +166,9 @@ public class FormDto {
     }
 
     // If no passingGrade was supplied, use the default defined in GradeFormat:
+    // TODO: Clean out the database of previous objects sent from Front End with empty strings so we can delete this check
     public String getPassingGrade() {
-        if(passingGrade == null) {
+        if(passingGrade == null || passingGrade.isEmpty()) {
             return gradeFormat.getPassingScore();
         }
         return passingGrade;
