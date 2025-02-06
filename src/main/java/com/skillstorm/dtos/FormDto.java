@@ -1,5 +1,6 @@
 package com.skillstorm.dtos;
 
+import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.skillstorm.constants.EventType;
@@ -13,6 +14,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @Data
@@ -43,8 +45,6 @@ public class FormDto {
     //TODO: decide on a date format
     @NotNull(message = "{event.date.must}")
     private String date;
-
-    private boolean urgent;
 
     @NotNull(message = "{event.location.must}")
     @NotEmpty(message = "{event.location.must}")
@@ -108,7 +108,6 @@ public class FormDto {
         this.email = form.getEmail();
         this.time = form.getTime().toString();
         this.date = form.getDate().toString();
-        this.urgent = form.isUrgent();
         this.location = form.getLocation();
         this.description = form.getDescription();
         this.cost = form.getCost();
@@ -135,9 +134,8 @@ public class FormDto {
         form.setFirstName(firstName);
         form.setLastName(lastName);
         form.setEmail(email);
-        form.setTime(LocalTime.parse(time));
+        form.setTime(LocalTime.parse(time).truncatedTo(ChronoUnit.MINUTES));
         form.setDate(LocalDate.parse(date));
-        form.setUrgent(isUrgent());
         form.setLocation(location);
         form.setDescription(description);
         form.setCost(cost.setScale(2, RoundingMode.HALF_UP));
@@ -159,6 +157,7 @@ public class FormDto {
     }
 
     // If Event takes place within two weeks, the Form will be marked as Urgent:
+    @JsonGetter
     public boolean isUrgent() {
         return LocalDate.parse(date)
                 .minusDays(14)

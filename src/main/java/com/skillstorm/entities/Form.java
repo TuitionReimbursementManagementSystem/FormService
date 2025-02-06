@@ -38,8 +38,6 @@ public class Form {
 
     private LocalDate date;
 
-    private boolean urgent;
-
     private String location;
 
     private String description;

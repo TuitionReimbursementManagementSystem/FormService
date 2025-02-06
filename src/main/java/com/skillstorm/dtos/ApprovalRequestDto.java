@@ -14,4 +14,6 @@ public class ApprovalRequestDto implements Serializable {
 
     private UUID formId;
     private String username;
+    private String requester;
+    private String eventDate;
 }

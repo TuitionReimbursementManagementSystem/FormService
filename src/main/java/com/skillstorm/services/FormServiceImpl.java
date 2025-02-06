@@ -135,13 +135,15 @@ public class FormServiceImpl implements FormService {
 
                     // Otherwise, submit to Supervisor for approval:
                     formDto.setStatus(Status.AWAITING_SUPERVISOR_APPROVAL);
-                    return sendRequestForApproval(id, supervisor.getUsername())
+                    return sendRequestForApproval(formDto.getId(), supervisor.getUsername(), formDto.getUsername(), formDto.getDate())
                             .then(formRepository.save(formDto.mapToEntity())
                                     .map(FormDto::new));
                 }));
     }
 
     // Supervisor approve request:
+    // TODO: Should probably set up a Queue specifically for approval actions so that generating a message to the next approver and deleting it from the inbox of the current approver
+    // happens in a single request to the message service:
     @Override
     public Mono<FormDto> supervisorApprove(UUID id, String supervisor) {
         return findById(id)
@@ -152,8 +154,8 @@ public class FormServiceImpl implements FormService {
 
                     formDto.setStatus(Status.AWAITING_DEPARTMENT_HEAD_APPROVAL);
                     return getApprover(supervisor, Queues.DEPARTMENT_HEAD_LOOKUP, Queues.DEPARTMENT_HEAD_RESPONSE)
-                            .flatMap(departmentHead -> sendRequestForApproval(id, departmentHead.getUsername()))
-                            .then(removeRequestFromInbox(id, supervisor))
+                            .flatMap(departmentHead -> sendRequestForApproval(id, departmentHead.getUsername(), formDto.getUsername(), formDto.getDate()))
+                            .then(removeRequestFromInbox(id, supervisor, formDto.getUsername(), formDto.getDate()))
                             .then(formRepository.save(formDto.mapToEntity()))
                             .map(FormDto::new);
                 });
@@ -167,7 +169,7 @@ public class FormServiceImpl implements FormService {
                 .flatMap(formDto -> {
                     formDto.setStatus(Status.AWAITING_BENCO_APPROVAL);
                     return getApprover(departmentHead, Queues.BENCO_LOOKUP, Queues.BENCO_RESPONSE)
-                            .flatMap(benco -> sendRequestForApproval(id, benco.getUsername()))
+                            .flatMap(benco -> sendRequestForApproval(id, benco.getUsername(), formDto.getUsername(), formDto.getDate()))
                             .then(formRepository.save(formDto.mapToEntity()))
                             .map(FormDto::new);
                 });
@@ -179,7 +181,7 @@ public class FormServiceImpl implements FormService {
         return findById(id).flatMap(formDto -> {
             formDto.setStatus(Status.DENIED);
             formDto.setReasonDenied(reason);
-            return sendRequestForApproval(id, formDto.getUsername())
+            return sendRequestForApproval(id, formDto.getUsername(), formDto.getUsername(), formDto.getDate())
                     .then(formRepository.save(formDto.mapToEntity()))
                     .map(FormDto::new);
         });
@@ -188,7 +190,7 @@ public class FormServiceImpl implements FormService {
     // Benco approve request:
     @Override
     public Mono<FormDto> bencoApprove(UUID id) {
-        return findById(id).flatMap(formDto -> sendRequestForApproval(id, formDto.getUsername())
+        return findById(id).flatMap(formDto -> sendRequestForApproval(id, formDto.getUsername(), formDto.getUsername(), formDto.getDate())
                 .then(getAdjustedReimbursement(formDto.getUsername(), formDto.getReimbursement()))
                 .flatMap(adjustedReimbursement -> {
                     formDto.setStatus(Status.PENDING);
@@ -202,7 +204,7 @@ public class FormServiceImpl implements FormService {
     public Mono<FormDto> awardReimbursement(UUID id) {
         return findById(id).flatMap(formDto -> {
             formDto.setStatus(Status.APPROVED);
-            return sendRequestForApproval(id, formDto.getUsername())
+            return sendRequestForApproval(id, formDto.getUsername(), formDto.getUsername(), formDto.getDate())
                     .then(formRepository.save(formDto.mapToEntity()))
                     .map(FormDto::new);
         });
@@ -227,8 +229,8 @@ public class FormServiceImpl implements FormService {
         });
     }
 
-    private Mono<Void> sendCompletionVerificationRequest(UUID id, String approver) {
-        ApprovalRequestDto approvalRequest = new ApprovalRequestDto(id, approver);
+    private Mono<Void> sendCompletionVerificationRequest(FormDto formDto, String approver) {
+        ApprovalRequestDto approvalRequest = new ApprovalRequestDto(formDto.getId(), approver, formDto.getUsername(), formDto.getDate());
         return Mono.fromRunnable(() -> rabbitTemplate.convertAndSend(Queues.COMPLETION_VERIFICATION.toString(), approver));
     }
 
@@ -291,14 +293,14 @@ public class FormServiceImpl implements FormService {
     }
 
     // Send ApprovalRequest to an approver's inbox:
-    private Mono<Void> sendRequestForApproval(UUID formId, String username) {
-        ApprovalRequestDto approvalRequest = new ApprovalRequestDto(formId, username.toLowerCase());
+    private Mono<Void> sendRequestForApproval(UUID formId, String approver, String requester, String eventDate) {
+        ApprovalRequestDto approvalRequest = new ApprovalRequestDto(formId, approver.toLowerCase(), requester, eventDate);
         return Mono.fromRunnable(() -> rabbitTemplate.convertAndSend(Queues.APPROVAL_REQUEST.toString(), approvalRequest));
     }
 
     // Send DeletionRequest to clear message from User's inbox:
-    private Mono<Void> removeRequestFromInbox(UUID formId, String username) {
-        ApprovalRequestDto approvalRequest = new ApprovalRequestDto(formId, username.toLowerCase());
+    private Mono<Void> removeRequestFromInbox(UUID formId, String approver, String requester, String eventDate) {
+        ApprovalRequestDto approvalRequest = new ApprovalRequestDto(formId, approver.toLowerCase(), requester, eventDate);
         return Mono.fromRunnable(() -> rabbitTemplate.convertAndSend(Queues.DELETION_REQUEST.toString(), approvalRequest));
     }
 
