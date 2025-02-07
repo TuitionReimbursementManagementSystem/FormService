@@ -70,6 +70,13 @@ public class FormController {
         return formService.deleteById(id);
     }
 
+    // Cancel a Reimbursement request. Only if has not yet been awarded:
+    //TODO: If Form was Pending, Recalculate other Pending forms to utilize any freed Reimbursement allowance?
+    @DeleteMapping("/{id}/cancel")
+    public Mono<Void> cancelRequest(@PathVariable("id") UUID id) {
+        return formService.cancelRequest(id);
+    }
+
     // Get EventTypes. Used to populate a list for the user to choose from:
     @GetMapping("/events")
     public Flux<EventType> getEventTypes() {
@@ -126,13 +133,6 @@ public class FormController {
     @PutMapping("/{id}/award-reimbursement")
     public Mono<FormDto> awardReimbursement(@PathVariable("id") UUID id, @RequestHeader("username") String approver) {
         return formService.awardReimbursement(id);
-    }
-
-    // Cancel a Reimbursement request. Only if has not yet been awarded:
-    //TODO: If Form was Pending, Recalculate other Pending forms to utilize any freed Reimbursement allowance?
-    @DeleteMapping("/{id}/cancel")
-    public Mono<Void> cancelRequest(@PathVariable("id") UUID id) {
-        return formService.cancelRequest(id);
     }
 
     // Generate a Pre-signed Url to allow user to upload file attachments to S3:
