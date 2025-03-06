@@ -113,13 +113,6 @@ public class FormController {
         return formService.departmentHeadApprove(id, departmentHead);
     }
 
-    // Deny the reimbursement request:
-    // TODO: 'Approver' username in header?
-    @PutMapping("/{id}/deny")
-    public Mono<FormDto> denyRequest(@PathVariable("id") UUID id, @Valid @RequestBody Mono<DenialDto> denialDto) {
-        return denialDto.flatMap(denial -> formService.denyRequest(id, denial.getReason()));
-    }
-
     // Benco approve request. Still pending and requires passing grade / presentation to be granted:
     // TODO: Verify that approver is a Benco either here or in service method:
     @PutMapping("/{id}/benco-approve")
@@ -133,6 +126,13 @@ public class FormController {
     @PutMapping("/{id}/award-reimbursement")
     public Mono<FormDto> awardReimbursement(@PathVariable("id") UUID id, @RequestHeader("username") String approver) {
         return formService.awardReimbursement(id);
+    }
+
+    // Deny the reimbursement request:
+    // TODO: 'Approver' username in header?
+    @PutMapping("/{id}/deny")
+    public Mono<FormDto> denyRequest(@PathVariable("id") UUID id, @Valid @RequestBody Mono<DenialDto> denialDto) {
+        return denialDto.flatMap(denial -> formService.denyRequest(id, denial));
     }
 
     // Generate a Pre-signed Url to allow user to upload file attachments to S3:
@@ -150,7 +150,7 @@ public class FormController {
 
     // Generate a Pre-signed Url to allow user to download file attachments from S3:
     @GetMapping("/{id}/attachments/url")
-    public Mono<String> generateDownloadUrl(@PathVariable("id") UUID id, @RequestParam AttachmentType attachmentType) {
+    public Mono<String> generateDownloadUrl(@PathVariable("id") UUID id, @RequestParam("attachmentType") AttachmentType attachmentType) {
         return formService.generateDownloadUrl(id, attachmentType);
     }
 }

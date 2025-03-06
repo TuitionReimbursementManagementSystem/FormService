@@ -175,18 +175,6 @@ public class FormServiceImpl implements FormService {
                 });
     }
 
-    // Deny Request Form:
-    @Override
-    public Mono<FormDto> denyRequest(UUID id, String reason) {
-        return findById(id).flatMap(formDto -> {
-            formDto.setStatus(Status.DENIED);
-            formDto.setReasonDenied(reason);
-            return sendRequestForApproval(id, formDto.getUsername(), formDto.getUsername(), formDto.getDate())
-                    .then(formRepository.save(formDto.mapToEntity()))
-                    .map(FormDto::new);
-        });
-    }
-
     // Benco approve request:
     @Override
     public Mono<FormDto> bencoApprove(UUID id) {
@@ -336,6 +324,19 @@ public class FormServiceImpl implements FormService {
     // TODO: look up Benco's supervisor and send message to MessageService:
     private Mono<Void> sendEscalationEmail(String username) {
         return Mono.empty();
+    }
+
+    // Deny Request Form:
+    @Override
+    public Mono<FormDto> denyRequest(UUID id, DenialDto denialDto) {
+        return findById(id).flatMap(formDto -> {
+            formDto.setStatus(Status.DENIED);
+            formDto.setReasonDenied(denialDto.getReason());
+            return sendRequestForApproval(id, formDto.getUsername(), denialDto.getApprover(), formDto.getDate())
+                    .then(removeRequestFromInbox(id, denialDto.getApprover(), formDto.getUsername(), formDto.getDate()))
+                    .then(formRepository.save(formDto.mapToEntity()))
+                    .map(FormDto::new);
+        });
     }
 
     // Generate a pre-signed URL to allow user to upload file directly to S3 from their own machine:

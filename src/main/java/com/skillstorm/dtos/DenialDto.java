@@ -7,6 +7,10 @@ import lombok.Data;
 @Data
 public class DenialDto {
 
+    @NotNull
+    @NotEmpty
+    private String approver;
+
     @NotNull(message = "{denial.reason.must}")
     @NotEmpty(message = "{denial.reason.must}")
     private String reason;

@@ -5,6 +5,7 @@ import com.skillstorm.constants.EventType;
 import com.skillstorm.constants.GradeFormat;
 import com.skillstorm.constants.Status;
 import com.skillstorm.dtos.AttachmentUpdateDto;
+import com.skillstorm.dtos.DenialDto;
 import com.skillstorm.dtos.FormDto;
 import com.skillstorm.dtos.UploadUrlResponse;
 import reactor.core.publisher.Flux;
@@ -50,9 +51,6 @@ public interface FormService {
     // Department Head approves request:
     Mono<FormDto> departmentHeadApprove(UUID id, String departmentHead);
 
-    // Deny Request Form:
-    Mono<FormDto> denyRequest(UUID id, String reason);
-
     // Benco approves request:
     Mono<FormDto> bencoApprove(UUID id);
 
@@ -61,6 +59,9 @@ public interface FormService {
 
     // Cancel a Reimbursement Request:
     Mono<Void> cancelRequest(UUID id);
+
+    // Deny Request Form:
+    Mono<FormDto> denyRequest(UUID id, DenialDto denialDto);
 
     // Generate a pre-signed URL to allow user to upload file directly to S3 from their own machine:
     Mono<UploadUrlResponse> generateUploadUrl(UUID formId, String contentType, AttachmentType attachmentType);
